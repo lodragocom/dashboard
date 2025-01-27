@@ -1,0 +1,121 @@
+/* File CSS per il progetto */
+
+/* Contenitore generale */
+.container {
+    margin-top: 50px;
+    text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+/* Stile per il titolo */
+.title {
+    font-size: 36px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Stile per il sottotitolo */
+.subtitle {
+    font-size: 18px;
+    color: #555;
+    margin-bottom: 20px;
+}
+
+/* Contenitore per i pulsanti */
+.button-container {
+    display: flex;
+    justify-content: center; /* Centra i pulsanti */
+    gap: 15px; /* Spaziatura tra i pulsanti */
+    margin-top: 30px; /* Spaziatura superiore */
+}
+
+/* Stile generale per i pulsanti */
+.custom-button {
+    background-color: #4CAF50; /* Colore di sfondo */
+    border: none; /* Rimuove il bordo */
+    color: white; /* Colore del testo */
+    padding: 12px 24px; /* Padding interno */
+    font-size: 16px; /* Dimensione del font */
+    font-weight: bold; /* Testo in grassetto */
+    cursor: pointer; /* Cambia il cursore */
+    border-radius: 8px; /* Angoli arrotondati */
+    transition: all 0.3s ease; /* Transizione per hover */
+}
+
+/* Stile hover per i pulsanti */
+.custom-button:hover {
+    background-color: #45a049; /* Cambia il colore di sfondo al passaggio del mouse */
+}
+
+/* Stile per pulsanti primari */
+.primary-button {
+    background-color: #007BFF; /* Colore blu */
+    border: 1px solid #0056b3; /* Bordo blu più scuro */
+    color: white; /* Colore del testo */
+    padding: 12px 24px;
+    font-size: 16px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.primary-button:hover {
+    background-color: #0056b3; /* Colore di sfondo più scuro */
+}
+
+/* Stile per pulsanti secondari */
+.secondary-button {
+    background-color: #ffc107; /* Colore giallo */
+    border: 1px solid #e0a800; /* Bordo giallo più scuro */
+    color: black; /* Colore del testo */
+    padding: 12px 24px;
+    font-size: 16px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.secondary-button:hover {
+    background-color: #e0a800; /* Giallo più scuro */
+    color: white; /* Cambia il colore del testo */
+}
+
+/* Stile per pulsanti disabilitati */
+.custom-button:disabled {
+    background-color: #cccccc; /* Colore di sfondo grigio */
+    border-color: #aaaaaa; /* Bordo grigio */
+    color: #666666; /* Testo grigio scuro */
+    cursor: not-allowed; /* Indica che il pulsante non è cliccabile */
+}
+
+/* Layout per colonne */
+.column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* Layout per righe */
+.row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+/* Stile per card */
+.card {
+    background-color: #f8f9fa; /* Sfondo chiaro */
+    border: 1px solid #ddd; /* Bordo grigio */
+    border-radius: 10px; /* Angoli arrotondati */
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Ombreggiatura leggera */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: scale(1.05); /* Leggera ingrandimento al passaggio del mouse */
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15); /* Ombreggiatura più marcata */
+}
