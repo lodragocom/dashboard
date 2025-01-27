@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Streamlit temp files
+.temp_files/
+*.log
+
+# OS-specific files
+.DS_Store
+
+# IDE-specific files
+.vscode/
+.idea/

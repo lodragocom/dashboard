@@ -6,7 +6,6 @@ from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
 import random
 import plotly.express as px
-import plotly.graph_objects as go
 
 # Configurazione del layout
 st.set_page_config(page_title="Catalogo Prodotti", layout="wide")
@@ -229,6 +228,19 @@ elif choice == "BigBuy":
             .to_html(escape=False, index=False),
             unsafe_allow_html=True
         )
+
+        # Esportazione CSV
+        st.sidebar.markdown("## Esporta i Dati Filtrati")
+        selected_columns = st.sidebar.multiselect("Seleziona le colonne da esportare:", options=filtered_products.columns.tolist(), default=filtered_products.columns.tolist())
+
+        if st.sidebar.button("Esporta in CSV"):
+            csv_data = filtered_products[selected_columns].to_csv(index=False, sep=';')
+            st.sidebar.download_button(
+                label="Scarica CSV",
+                data=csv_data,
+                file_name="prodotti_filtrati.csv",
+                mime="text/csv"
+            )
 
 elif choice == "Dreamlove" or choice == "VidaXL":
     st.markdown(f"<h2 style='text-align: center;'>Catalogo {choice}</h2>", unsafe_allow_html=True)
