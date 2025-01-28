@@ -1,62 +1,114 @@
 import streamlit as st
+import json
+import os
 
-# Funzione per verificare l'utente (mock)
-def authenticate(username, password):
-    # Utenti mock: username, password, ruolo (user/admin)
-    users = {"admin": ("password123", "admin"), "user": ("password", "user")}
-    if username in users and users[username][0] == password:
-        return users[username][1]  # Restituisce il ruolo dell'utente
-    return None
 
-# Funzione per il routing delle pagine
-def route_pages(page):
-    if page == "profilo":
-        import pages.profilo as profilo
-        profilo.profilo_page()
-    elif page == "catalogo":
-        import pages.catalogo as catalogo
-        catalogo.catalogo_page()
-    elif page == "catologo_def":
-        import pages.catologo_def as catologo_def
-        catologo_def.catologo_def_page()
-    elif page == "dashboard":
-        import pages.dashboard as dashboard
-        dashboard.dashboard_page()
-    elif page == "finanze" and st.session_state.get("role") == "admin":
-        import pages.finanze as finanze
-        finanze.finanze_page()
-    else:
-        st.error("Pagina non trovata o accesso negato!")
+# Nome del file per la memorizzazione delle sessioni
+SESSION_FILE = "utils/user_sessions.json"
 
-# Pagina Login
-def login_page():
-    st.title("Login e Registrazione")
+# Assicurati che la directory "data/" esista
+if not os.path.exists("data"):
+    os.makedirs("data")
 
-    # Input dell'utente
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        role = authenticate(username, password)
-        if role:
-            st.success(f"Benvenuto {username}!")
-            # Salva lo stato della sessione
-            st.session_state["username"] = username
-            st.session_state["role"] = role
-            st.session_state["authenticated"] = True
-            # Simula il reindirizzamento impostando parametri nella query
-            st.query_params.update({"page": "profilo"})  # Redirect alla pagina profilo
-        else:
-            st.error("Credenziali non valide!")
+# Funzione per caricare lo stato delle sessioni da file
+def load_session_state():
+    if os.path.exists(SESSION_FILE):
+        with open(SESSION_FILE, "r") as file:
+            return json.load(file)
+    return {}
 
-# Check stato utente
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+# Funzione per salvare lo stato delle sessioni su file
+def save_session_state(session_data):
+    try:
+        with open(SESSION_FILE, "w") as file:
+            json.dump(session_data, file)
+    except Exception as e:
+        print(f"Errore nel salvare il file di sessione: {e}")
 
-# Routing
-if st.session_state["authenticated"]:
-    # Ottieni i parametri dalla query per capire quale pagina mostrare
-    query_params = st.query_params
-    page = query_params.get("page", ["profilo"])[0]
-    route_pages(page)
-else:
-    login_page()
+# Funzione per caricare lo stato delle sessioni da file
+def load_session_state():
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, "r") as file:
+                return json.load(file)
+        except json.JSONDecodeError:
+            print("Errore nel leggere il file di sessione. Creazione di un nuovo file.")
+            return {}
+    return {}
+
+# Funzione per impostare lo stato dell'utente al login
+def set_user_session(username, role):
+    session_state = load_session_state()
+    if username not in session_state:
+        session_state[username] = {"role": role, "last_page": "dashboard", "data": {}}
+    session_state[username]["role"] = role
+    save_session_state(session_state)
+    st.session_state["username"] = username
+    st.session_state["role"] = role
+    st.session_state["data"] = session_state[username]["data"]
+
+# Funzione per aggiornare e salvare i dati specifici
+def update_user_data(key, value):
+    if "username" not in st.session_state:
+        raise ValueError("L'utente non è autenticato.")
+    session_state = load_session_state()
+    username = st.session_state["username"]
+    if username in session_state:
+        session_state[username]["data"][key] = value
+        save_session_state(session_state)
+        st.session_state["data"] = session_state[username]["data"]
+
+# Funzione per recuperare lo stato dell'utente
+def restore_user_session(username):
+    session_state = load_session_state()
+    if username in session_state:
+        user_data = session_state[username]
+        st.session_state["username"] = username
+        st.session_state["role"] = user_data["role"]
+        st.session_state["data"] = user_data["data"]
+        return True
+    return False
+
+# Funzione per il logout
+def logout_user():
+    if "username" in st.session_state:
+        session_state = load_session_state()
+        if st.session_state["username"] in session_state:
+            session_state[st.session_state["username"]]["last_page"] = st.session_state["last_page"]
+            save_session_state(session_state)
+        st.session_state.clear()
+
+# Funzione per verificare se l'utente è autenticato
+def is_authenticated():
+    return "username" in st.session_state and "role" in st.session_state
+
+# Funzione per ottenere lo stato globale per un determinato campo
+def get_global_state(key, default=None):
+    if "data" in st.session_state:
+        return st.session_state["data"].get(key, default)
+    return default
+
+# Funzione per recuperare lo stato dell'utente
+def restore_user_session(username):
+    session_state = load_session_state()
+    if username in session_state:
+        user_data = session_state[username]
+        st.session_state["username"] = username
+        st.session_state["role"] = user_data["role"]
+        st.session_state["last_page"] = user_data["last_page"]
+        st.session_state["data"] = user_data["data"]
+        return True
+    return False
+
+# Funzione per il logout
+def logout_user():
+    if "username" in st.session_state:
+        session_state = load_session_state()
+        if st.session_state["username"] in session_state:
+            session_state[st.session_state["username"]]["last_page"] = st.session_state["last_page"]
+            save_session_state(session_state)
+        st.session_state.clear()
+
+# Funzione per verificare se l'utente è autenticato
+def is_authenticated():
+    return "username" in st.session_state and "role" in st.session_state

@@ -58,14 +58,17 @@ def login_page():
                 st.session_state["username"] = username
                 st.session_state["role"] = users[username][1]
                 st.session_state["page"] = "dashboard"  # Vai alla dashboard
-                st.experimental_rerun()  # Forza il refresh della pagina
+
+                # Aggiorna i parametri della query per forzare il refresh
+                st.experimental_set_query_params(page="dashboard")
             else:
                 st.error("Credenziali non valide!")
 
     with col2:
         if st.button("Torna Indietro"):
             st.session_state["page"] = "home"  # Torna alla pagina iniziale
-
+            st.experimental_set_query_params(page="home")
+            
 # Pagina di Registrazione
 def registration_page():
     st.set_page_config(layout="wide")  # Imposta il layout senza sidebar
@@ -167,3 +170,6 @@ elif st.session_state["page"] == "dashboard" and st.session_state.get("authentic
     dashboard()
 else:
     st.error("Accesso non autorizzato! Torna al Login.")
+
+
+    

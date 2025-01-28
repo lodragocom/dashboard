@@ -1,7 +1,4 @@
-streamlit==1.22.0
-pandas==1.5.3
-numpy==1.24.3
-fuzzywuzzy==0.18.0
-plotly==5.15.0
-python-Levenshtein==0.20.10
-matplotlib==3.7.2
+streamlit
+pandas
+numpy
+uuid

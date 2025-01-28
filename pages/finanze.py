@@ -2,7 +2,9 @@ import streamlit as st
 import pandas as pd
 import datetime
 import uuid
-import plotly.express as px
+import numpy as np
+from auth import update_user_data, get_global_state
+from utils.data_utils import load_catalog_from_file
 
 # Funzione per caricare il CSS
 def load_css():
@@ -24,6 +26,26 @@ def sistema_fatturazione():
     menu = ["Dashboard", "Invoice", "Cost", "Supplier"]
     choice = st.sidebar.radio("Navigazione Finanze", menu)
 
+    # Carica le fatture salvate
+    if "invoices" not in st.session_state:
+        st.session_state["invoices"] = get_global_state("invoices", default=[])
+
+    # Recupera il catalogo se non è disponibile in sessione
+    if "products" not in st.session_state:
+        products, categories, manufacturers = load_catalog_from_file()
+        if products is not None:
+            st.session_state["products"] = products
+        else:
+            st.error("Devi prima caricare i prodotti nella sezione Catalogo.")
+            st.stop()
+
+    # Verifica se il catalogo è caricato
+    if "products" in st.session_state and st.session_state["products"] is not None:
+        products_df = st.session_state["products"]
+    else:
+        st.error("Il catalogo non è stato caricato correttamente.")
+        st.stop()
+
     if choice == "Dashboard":
         st.markdown("<div class='section-header'>Dashboard Finanziaria</div>", unsafe_allow_html=True)
 
@@ -36,14 +58,7 @@ def sistema_fatturazione():
         df = pd.DataFrame(data)
 
         # Grafico dinamico delle entrate e uscite
-        fig = px.line(
-            df,
-            x="Mese",
-            y=["Entrate (€)", "Uscite (€)"],
-            labels={"value": "Euro", "variable": "Tipologia"},
-            title="Andamento Finanziario"
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        st.line_chart(data=df.set_index("Mese"), use_container_width=True)
 
         # Riepilogo metriche
         col1, col2, col3 = st.columns(3)
@@ -57,82 +72,66 @@ def sistema_fatturazione():
     elif choice == "Invoice":
         st.markdown("<div class='section-header'>Sistema di Fatturazione</div>", unsafe_allow_html=True)
 
-        # Inizializzazione dello stato per le fatture
-        if "invoices" not in st.session_state:
-            st.session_state["invoices"] = []
+        # Selezione del tipo di cliente
+        tipo_cliente = st.radio("Seleziona il tipo di cliente", ["Privato", "Business"])
 
-        # Modulo per creare una nuova fattura
-        with st.form(key="new_invoice_form"):
+        # Modulo per cliente privato
+        if tipo_cliente == "Privato":
             col1, col2 = st.columns(2)
-
             with col1:
-                cliente = st.text_input("Cliente")
-                data_emissione = st.date_input("Data di Emissione", datetime.date.today())
+                nome = st.text_input("Nome")
+                cognome = st.text_input("Cognome")
             with col2:
-                importo = st.number_input("Importo Totale (€)", min_value=0.0, step=0.01)
-                stato = st.selectbox("Stato", options=["Pagata", "In attesa"])
+                indirizzo = st.text_area("Indirizzo")
+                telefono = st.text_input("Numero di Telefono")
+                email = st.text_input("Email")
 
-            prodotti_servizi = st.text_area("Descrizione Prodotti/Servizi")
+        # Modulo per cliente business
+        elif tipo_cliente == "Business":
+            col1, col2 = st.columns(2)
+            with col1:
+                nome_azienda = st.text_input("Nome Azienda")
+                partita_iva = st.text_input("Partita IVA")
+            with col2:
+                indirizzo = st.text_area("Indirizzo")
+                telefono = st.text_input("Numero di Telefono")
+                email = st.text_input("Email")
 
-            # Pulsante per salvare la fattura
-            if st.form_submit_button("Salva Fattura"):
-                nuova_fattura = {
-                    "ID": str(uuid.uuid4()),
-                    "Cliente": cliente,
-                    "Data": data_emissione,
-                    "Importo (€)": importo,
-                    "Stato": stato,
-                    "Dettagli": prodotti_servizi
-                }
-                st.session_state["invoices"].append(nuova_fattura)
-                st.success("Fattura salvata con successo!")
+        # Selezione dei prodotti
+        st.markdown("### Seleziona Prodotti dal Catalogo")
+        prodotti_selezionati = st.multiselect(
+            "Scegli i prodotti",
+            options=products_df["NAME"].tolist(),
+            format_func=lambda x: f"{x}",
+        )
 
-        st.markdown("<hr class='divider'>", unsafe_allow_html=True)
+        # Calcolo totale
+        totale = products_df[products_df["NAME"].isin(prodotti_selezionati)]["PRICE"].sum()
 
-        # Sezione: Elenco Fatture
+        st.markdown(f"### Totale: €{totale:.2f}")
+
+        # Salvataggio fattura
+        if st.button("Genera Fattura"):
+            fattura = {
+                "ID": str(uuid.uuid4()),
+                "Tipo Cliente": tipo_cliente,
+                "Nome": nome if tipo_cliente == "Privato" else nome_azienda,
+                "Indirizzo": indirizzo,
+                "Telefono": telefono,
+                "Email": email,
+                "Prodotti": prodotti_selezionati,
+                "Totale (€)": totale,
+                "Data": datetime.date.today().isoformat(),
+            }
+            st.session_state["invoices"].append(fattura)
+            update_user_data("invoices", st.session_state["invoices"])
+            st.success("Fattura generata con successo!")
+
+        # Visualizzazione delle fatture
         if st.session_state["invoices"]:
+            st.markdown("### Elenco Fatture")
             fatture_df = pd.DataFrame(st.session_state["invoices"])
-
-            # Tabella interattiva per visualizzare le fatture
-            st.data_editor(
-                fatture_df,
-                column_config={
-                    "ID": "ID Fattura",
-                    "Cliente": "Cliente",
-                    "Data": "Data Emissione",
-                    "Importo (€)": "Importo Totale",
-                    "Stato": {
-                        "type": "select",
-                        "options": ["Pagata", "In attesa"],
-                    },
-                    "Dettagli": "Prodotti/Servizi"
-                },
-                hide_index=True,
-            )
-
-            # Opzione per esportare le fatture
-            if st.button("Esporta in CSV"):
-                csv_data = fatture_df.to_csv(index=False, sep=';')
-                st.download_button(
-                    label="Scarica CSV",
-                    data=csv_data,
-                    file_name="fatture.csv",
-                    mime="text/csv"
-                )
-
-        else:
-            st.warning("Non ci sono fatture al momento.")
-
-        st.markdown("<hr class='divider'>", unsafe_allow_html=True)
-
-        # Grafico riepilogativo delle fatture
-        if st.session_state["invoices"]:
-            fatture_df = pd.DataFrame(st.session_state["invoices"])
-
-            fatture_df["Anno"] = fatture_df["Data"].apply(lambda x: x.year)
-            fatture_riepilogo = fatture_df.groupby("Anno")["Importo (€)"].sum().reset_index()
-
-            st.bar_chart(fatture_riepilogo, x="Anno", y="Importo (€)")
+            st.table(fatture_df)
 
     elif choice == "Cost":
         st.markdown("<div class='section-header'>Gestione Costi</div>", unsafe_allow_html=True)

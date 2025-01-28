@@ -1,30 +1,29 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import os
 import re
-from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
 import random
-import plotly.express as px
+from auth import update_user_data, get_global_state
+from utils.data_utils import save_catalog_to_file, load_catalog_from_file
+
 
 # Configurazione del layout
 st.set_page_config(page_title="Catalogo Prodotti", layout="wide")
 
-# Directory temporanea per salvare i file caricati
-TEMP_DIR = "temp_files"
-if not os.path.exists(TEMP_DIR):
-    os.makedirs(TEMP_DIR)
+# Controllo dell'accesso
+if "username" not in st.session_state:
+    st.error("Accesso non autorizzato! Torna al login.")
+    st.stop()
 
-# Funzione per salvare i file caricati
-@st.cache_data
-def save_uploaded_files(uploaded_files, file_type):
-    file_paths = []
-    for uploaded_file in uploaded_files:
-        file_path = os.path.join(TEMP_DIR, f"{file_type}_{uploaded_file.name}")
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        file_paths.append(file_path)
-    return file_paths
+# Caricamento dati persistenti
+user_data = get_global_state("catalogo_data", default={})
+if "products" in user_data:
+    st.session_state["products"] = pd.DataFrame(user_data["products"])
+if "categories" in user_data:
+    st.session_state["categories"] = pd.DataFrame(user_data["categories"])
+if "manufacturers" in user_data:
+    st.session_state["manufacturers"] = pd.DataFrame(user_data["manufacturers"])
 
 # Funzione per caricare i file
 @st.cache_data
@@ -55,7 +54,19 @@ def load_data(product_files, category_files, manufacturer_files):
 
     return products, categories, manufacturers
 
-# Funzione per mappare le categorie e i produttori
+# Verifica se i cataloghi sono già memorizzati
+if "products" not in st.session_state:
+    # Carica i cataloghi salvati sul disco
+    products, categories, manufacturers = load_catalog_from_file()
+    if products is not None:
+        st.session_state["products"] = products
+        st.session_state["categories"] = categories
+        st.session_state["manufacturers"] = manufacturers
+        st.success("Cataloghi caricati correttamente dalla memoria persistente.")
+    else:
+        st.warning("Nessun catalogo trovato. Caricali per iniziare.")
+
+# Funzione per mappare i dati
 @st.cache_data
 def map_data(products, categories, manufacturers):
     category_map = categories.set_index('ID')['NAME'].to_dict()
@@ -84,6 +95,22 @@ def map_data(products, categories, manufacturers):
 
     return products
 
+# Funzione per salvare i file caricati
+@st.cache_data
+def save_uploaded_files(uploaded_files, file_type):
+    TEMP_DIR = "temp_files"
+    if not os.path.exists(TEMP_DIR):
+        os.makedirs(TEMP_DIR)
+
+    file_paths = []
+    for uploaded_file in uploaded_files:
+        file_path = os.path.join(TEMP_DIR, f"{file_type}_{uploaded_file.name}")
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        file_paths.append(file_path)
+
+    return file_paths
+
 # Navigazione interna
 menu = ["Dashboard", "BigBuy", "Dreamlove", "VidaXL"]
 choice = st.sidebar.radio("Navigazione Catalogo", menu)
@@ -93,32 +120,35 @@ if choice == "Dashboard":
 
     # Visualizzazione di metriche principali
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Prodotti Caricati", value=random.randint(500, 1000))
-    col2.metric("Categorie Disponibili", value=random.randint(50, 150))
-    col3.metric("Produttori", value=random.randint(20, 50))
+    col1.metric("Prodotti Caricati", value=len(st.session_state.get("products", [])))
+    col2.metric("Categorie Disponibili", value=len(st.session_state.get("categories", [])))
+    col3.metric("Produttori", value=len(st.session_state.get("manufacturers", [])))
     col4.metric("Stock Totale", value=random.randint(2000, 5000))
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
+    # Grafici dinamici con numpy
+    col1, col2, col3 = st.columns(3)
+
     # Grafico 1: Distribuzione Prezzi
-    st.markdown("<h3>Distribuzione Prezzi</h3>", unsafe_allow_html=True)
-    data_prices = {
-        "Categoria": ["Elettronica", "Casa", "Sport", "Moda"],
-        "Prezzo Medio (€)": [random.randint(10, 100) for _ in range(4)]
-    }
-    df_prices = pd.DataFrame(data_prices)
-    price_fig = px.bar(df_prices, x="Categoria", y="Prezzo Medio (€)", title="Prezzo Medio per Categoria", labels={"Prezzo Medio (€)": "Prezzo (€)"})
-    st.plotly_chart(price_fig, use_container_width=True)
+    with col1:
+        st.markdown("<h5>Distribuzione Prezzi</h5>", unsafe_allow_html=True)
+        categories = ["Elettronica", "Casa", "Sport", "Moda"]
+        prices = [random.randint(10, 100) for _ in categories]
+        st.bar_chart(pd.DataFrame({"Categoria": categories, "Prezzo Medio (€)": prices}).set_index("Categoria"))
 
     # Grafico 2: Stock per Categoria
-    st.markdown("<h3>Distribuzione Stock</h3>", unsafe_allow_html=True)
-    data_stock = {
-        "Categoria": ["Elettronica", "Casa", "Sport", "Moda"],
-        "Stock Totale": [random.randint(100, 1000) for _ in range(4)]
-    }
-    df_stock = pd.DataFrame(data_stock)
-    stock_fig = px.pie(df_stock, names="Categoria", values="Stock Totale", title="Stock Totale per Categoria")
-    st.plotly_chart(stock_fig, use_container_width=True)
+    with col2:
+        st.markdown("<h5>Stock per Categoria</h5>", unsafe_allow_html=True)
+        stocks = [random.randint(100, 1000) for _ in categories]
+        st.bar_chart(pd.DataFrame({"Categoria": categories, "Stock Totale": stocks}).set_index("Categoria"))
+
+    # Grafico 3: Vendite per Mese
+    with col3:
+        st.markdown("<h5>Vendite Mensili</h5>", unsafe_allow_html=True)
+        months = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu"]
+        sales = [random.randint(100, 500) for _ in months]
+        st.line_chart(pd.DataFrame({"Mese": months, "Vendite (€)": sales}).set_index("Mese"))
 
 elif choice == "BigBuy":
     st.markdown("<h2 style='text-align: center;'>Catalogo BigBuy</h2>", unsafe_allow_html=True)
@@ -133,11 +163,16 @@ elif choice == "BigBuy":
 
         st.session_state['products'], st.session_state['categories'], st.session_state['manufacturers'] = load_data(product_paths, category_paths, manufacturer_paths)
         st.session_state['products'] = map_data(st.session_state['products'], st.session_state['categories'], st.session_state['manufacturers'])
+        update_user_data('catalogo_data', {
+            'products': st.session_state['products'].to_dict(orient='records'),
+            'categories': st.session_state['categories'].to_dict(orient='records'),
+            'manufacturers': st.session_state['manufacturers'].to_dict(orient='records')
+        })
 
     if st.session_state.get('products') is not None:
         products = st.session_state['products']
 
-        # Filtri dinamici specifici per campi
+        # Filtri dinamici
         st.sidebar.markdown('<div class="sidebar-title">Filtri:</div>', unsafe_allow_html=True)
         keywords_name = st.sidebar.text_input("Parole chiave nel Nome (separate da virgola)", key="keywords_name")
         keywords_description = st.sidebar.text_input("Parole chiave nella Descrizione (separate da virgola)", key="keywords_description")
@@ -249,4 +284,4 @@ elif choice == "Dreamlove" or choice == "VidaXL":
 
     if uploaded_files:
         file_paths = save_uploaded_files(uploaded_files, choice.lower())
-        st.success(f"File caricati con successo in {TEMP_DIR}.")
+        st.success(f"File caricati con successo in temp_files.")
